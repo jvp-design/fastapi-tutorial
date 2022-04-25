@@ -663,53 +663,103 @@ app = FastAPI()
 #     return {"item_id": item_id}
 
 ## Part 20 - Path Operation Configuration
+# class Item(BaseModel):
+#     name: str
+#     description: str | None = None
+#     price: float
+#     tax: float | None = None
+#     tags: set[str] = set()
+#
+#
+# class Tags(Enum):
+#     items = "items"
+#     users = "users"
+#
+#
+# @app.post(
+#     "/items/",
+#     response_model=Item,
+#     status_code=status.HTTP_201_CREATED,
+#     tags=[Tags.items],
+#     summary="Create an Item-type item",
+#     # description="Create an item with all the information: "
+#     # "name; description; price; tax; and a set of "
+#     # "unique tags",
+#     response_description="The created item",
+# )
+# async def create_item(item: Item):
+#     """
+#     Create an item with all the information:
+#
+#     - **name**: each item must have a name
+#     - **description**: a long description
+#     - **price**: required
+#     - **tax**: if the item doesn't have tax, you can omit this
+#     - **tags**: a set of unique tag strings for this item
+#     """
+#     return item
+#
+#
+# @app.get("/items/", tags=[Tags.items])
+# async def read_items():
+#     return [{"name": "Foo", "price": 42}]
+#
+#
+# @app.get("/users/", tags=[Tags.users])
+# async def read_users():
+#     return [{"username": "PhoebeBuffay"}]
+#
+#
+# @app.get("/elements/", tags=[Tags.items], deprecated=True)
+# async def read_elements():
+#     return [{"item_id": "Foo"}]
+
+## Part 21a - JSON Compatible Encoder
 class Item(BaseModel):
-    name: str
+    name: str | None = None
     description: str | None = None
-    price: float
-    tax: float | None = None
-    tags: set[str] = set()
+    price: float | None = None
+    tax: float = 10.5
+    tags: list[str] = []
 
 
-class Tags(Enum):
-    items = "items"
-    users = "users"
+items = {
+    "foo": {"name": "Foo", "price": 50.2},
+    "bar": {
+        "name": "Bar",
+        "description": "The bartenders",
+        "price": 62,
+        "tax": 20.2,
+        "tags": ["1", "2", "3"],
+    },
+    "baz": {
+        "name": "Baz",
+        "description": None,
+        "price": 50.2,
+        "tax": 10.5,
+        "tags": [],
+    },
+}
 
 
-@app.post(
-    "/items/",
-    response_model=Item,
-    status_code=status.HTTP_201_CREATED,
-    tags=[Tags.items],
-    summary="Create an Item-type item",
-    # description="Create an item with all the information: "
-    # "name; description; price; tax; and a set of "
-    # "unique tags",
-    response_description="The created item",
-)
-async def create_item(item: Item):
-    """
-    Create an item with all the information:
-
-    - **name**: each item must have a name
-    - **description**: a long description
-    - **price**: required
-    - **tax**: if the item doesn't have tax, you can omit this
-    - **tags**: a set of unique tag strings for this item
-    """
-    return item
+@app.get("/items/{item_id}", response_model=Item)
+async def read_item(item_id: str):
+    return items[item_id]
 
 
-@app.get("/items/", tags=[Tags.items])
-async def read_items():
-    return [{"name": "Foo", "price": 42}]
+@app.put("/items/{item_id}", response_model=Item)
+async def update_item(item_id: str, item: Item):
+    update_item_encoded = jsonable_encoder(item)
+    items[item_id] = update_item_encoded
+    return update_item_encoded
 
 
-@app.get("/users/", tags=[Tags.users])
-async def read_users():
-    return [{"username": "PhoebeBuffay"}]
-
-
-@app.get("/elements/", tags=[Tags.items], deprecated=True)
-async def read_elements():
-    return [{"item_id": "Foo"}]
+@app.patch("/items/{item_id}", response_model=Item)
+async def patch_item(item_id: str, item: Item):
+    stored_item_data = items[item_id]
+    stored_item_model = Item(**stored_item_data)
+    update_data = item.dict(exclude_unset=True)
+    print(update_data)
+    updated_item = stored_item_model.copy(update=update_data)
+    items[item_id] = jsonable_encoder(updated_item)
+    return updated_item
